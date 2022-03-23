@@ -25,3 +25,8 @@ parameters:
   unit:
     values: [2, 4, 8, 16, 32, 64, 128]
     distribution: categorical
+command:
+    - ${env}
+    - python -m
+    - ${program}
+    - ${args}
