@@ -6,10 +6,10 @@ metric:
   goal: minimize
 parameters:
   activation:
-    values: relu
+    value: relu
     distribution: constant
   batch_size:
-    values: 1000
+    value: 1000
     distribution: constant
   max_epochs:
     value: 5000
