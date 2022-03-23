@@ -55,12 +55,12 @@ class MLP(pl.LightningModule):
         """
         return ((batch['output'] - self.forward(batch['input'])) ** 2).mean()
 
-    def training_step(self, batch):
+    def training_step(self, batch, batch_idx):
         training_loss = self.step(batch)
         self.log('training_loss', training_loss)
         return training_loss
 
-    def validation_step(self, batch):
+    def validation_step(self, batch, batch_idx):
         val_loss = self.step(batch)
         self.log('val_loss', val_loss)
         return val_loss
@@ -72,14 +72,14 @@ class MultiplicationDataset(Dataset):
         self.train_val_test = train_val_test
 
         self.path = f'{path.DATA}multiplication/'
-        # self.data = np.load(f'{self.path}{train_val_test}.npy')  # np array (n, 3), x1, x2, and x1x2
+        self.data = np.load(f'{self.path}{train_val_test}.npy')  # np array (n, 3), x1, x2, and x1x2
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, item):
         return {'input': torch.from_numpy(self.data[item][0:2]).float(),
-                'output': torch.from_numpy(self.data[item][2]).float()}
+                'output': torch.from_numpy(self.data[item][2:3]).float()}
 
     def gen_data(self):
         x1 = np.random.randn(int(60e6))
@@ -132,14 +132,16 @@ def training():
     model = MLP(2, 1, hp['layer'], hp['unit'], activation[hp['activation']], hp['lr'])
     logger.watch(model)
 
-    train_data = DataLoader(MultiplicationDataset('train'),
+    train_dataset = MultiplicationDataset('train')
+    train_data = DataLoader(train_dataset,
                             batch_size=args.batch_size,
                             shuffle=True,
                             num_workers=4,
                             pin_memory=True,
                             drop_last=True)
 
-    validation_data = DataLoader(MultiplicationDataset('val'),
+    val_dataset = MultiplicationDataset('train')
+    val_data = DataLoader(val_dataset,
                                  batch_size=args.batch_size,
                                  shuffle=False,
                                  num_workers=4,
@@ -150,7 +152,7 @@ def training():
                                           filename='{epoch}-{step}-{val_loss:.2f}',
                                           monitor='val_loss',
                                           mode='min')
-    trainer = pl.Trainer(gpus=1 if device != 'cpu' else 0,
+    trainer = pl.Trainer(gpus=1 if device.type != 'cpu' else None,
                          logger=logger,
                          deterministic=True,
                          max_epochs=args.max_epochs,
@@ -163,7 +165,7 @@ def training():
                          log_gpu_memory='False',
                          resume_from_checkpoint=args.resume_from_checkpoint,
                          callbacks=[checkpoint_callback])
-    trainer.fit(model, train_data, validation_data)
+    trainer.fit(model, train_data, val_data)
     print(checkpoint_callback.best_model_path)
 
 
